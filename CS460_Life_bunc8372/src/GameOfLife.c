@@ -81,6 +81,10 @@ extern void gofLoad(GameOfLife *psGame, char *szInput)
 		for (int j = 0; j < width; j++)
 		{
 			fscanf(inputFile, "%c", &psGame->pBoard[i][j]);
+			if (psGame->pBoard[i][j] != DEAD && psGame->pBoard[i][j] != LIVING)
+			{
+				j--;
+			}
 		}
 	}
 
@@ -229,7 +233,7 @@ extern void gofPrintToFile(GameOfLife *psGame, char *szOutput)
 		fprintf(outputFile, "\n");
 		for (int j = 0; j < psGame->width; j++)
 		{
-			fprintf(outputFile, "%c", psGame->pBoard[i][j]);
+			fprintf(outputFile, "%c ", psGame->pBoard[i][j]);
 		}
 	}
 
