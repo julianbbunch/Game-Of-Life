@@ -29,19 +29,19 @@ bin/CS460_Life.o:	src/CS460_Life.c \
 	${CC} ${CFLAGS} -o bin/CS460_Life.o -c src/CS460_Life.c
 	
 valgrind:	bin/CS460_Life
-	valgrind -v --leak-check=yes --track-origins=yes --leak-check=full --show-leak-kinds=all bin/CS460_Shell
+	valgrind -v --leak-check=yes --track-origins=yes --leak-check=full --show-leak-kinds=all bin/CS460_Life
 	
 debug:	bin/CS460_Life
 	bin/CS460_Life -d
 
 valgrind_debug:	bin/CS460_Life
-	valgrind -v --leak-check=yes --track-origins=yes --leak-check=full --show-leak-kinds=all bin/CS460_Shell -d
+	valgrind -v --leak-check=yes --track-origins=yes --leak-check=full --show-leak-kinds=all bin/CS460_Life testcases/smallGame.life testcases/smallGameValgrind.life 4
 
 runTest:	bin/CS460_Life
 	bin/CS460_Life
 
 clean:
-	rm -f bin/CS460_Life ${ALL_OBJECTS}
+	rm -f bin/CS460_Life ${OBJECTS}
 
 tarball: clean
 	tar czf ../CS460_Life.tar.gz CS460_Life_bunc8372
