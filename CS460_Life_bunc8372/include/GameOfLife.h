@@ -17,8 +17,8 @@
 //****************************************************
 // Constants
 //****************************************************
-#define F_OPTION "[-F]"
-#define X_OPTION "[-X]"
+#define F_OPTION "-F"
+#define X_OPTION "-X"
 #define DEAD '0'
 #define LIVING '1'
 #define MIN_TO_LIVE 2
