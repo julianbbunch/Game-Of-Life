@@ -21,6 +21,13 @@
 
 #include "../include/GameOfLife.h"
 
+/****************************************************************************
+ Function:    main
+ Description: Driver the Game of Life
+ Parameters:  argc - number of command line arguments
+ 	 	 	 	 	 	  argv - argument values
+ Returned:    None
+ ****************************************************************************/
 int main (int argc, char *argv[])
 {
 	GameOfLife sGame;
