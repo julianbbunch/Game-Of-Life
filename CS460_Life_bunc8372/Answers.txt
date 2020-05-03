@@ -1,0 +1,20 @@
+Julian Bunch
+
+1) Using one thread in the first milestone, the average real runtime was 165 
+	seconds. With two threads the average time 90 seconds. This is around a 45%
+	increase in speed. 
+
+2) Running the two instances of the timer at the same time the real runtime for
+	each process is about 162 seconds each. That is 80% more time than running
+	one at a time, roughly double. This is about what I would expect since for
+	fairness sake, the Linux scheduler doesn't completely run and finish one
+	instance of the timer before letting the other on the CPU. So, both get
+	roughly evenly slowed down by each other. I think the real runtime is a bit 
+	less than double because some parts the program don't use threads, like 
+	allocating and freeing dynamic memory. By having two cores, the CPU can 
+	run both single threaded sections of the process at the same time, and when 
+	the two threaded sections come up, it will slow down to half speed since 
+	there will be 4 threads and 2 cores. 
+	
+3) Compiling with the -O3 option sped up the real runtime to an average of
+	29 seconds. This is around 67% faster than without the -O3 option. 

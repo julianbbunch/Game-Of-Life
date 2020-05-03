@@ -13,9 +13,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 //****************************************************
-// Constants
+// Constants and global variables
 //****************************************************
 #define F_OPTION "-F"
 #define X_OPTION "-X"
@@ -25,15 +26,25 @@
 #define MAX_TO_LIVE 3
 #define NUM_TO_RESURRECT 3
 
+
+
 //****************************************************
 // User-defined types
 //****************************************************
 typedef struct GameOfLife
 {
-	unsigned char **pBoard;
-	int width, height, totalBirths, totalDeaths, births, deaths, generations;
+	char **pBoard, **pTempBoard;
+	int width, height, births, deaths, generations;
+	unsigned long long totalBirths, totalDeaths;
+
+	pthread_mutex_t lock;
 }GameOfLife;
 
+typedef struct CycleHalfArgs
+{
+	GameOfLife *psGame;
+	int half;
+} CycleHalfArgs;
 //****************************************************
 // Functions
 //****************************************************
@@ -41,7 +52,9 @@ typedef struct GameOfLife
 extern void gofCreate(GameOfLife *psGame, char *szInput);
 extern void gofTerminate(GameOfLife *psGame);
 extern void gofLoad(GameOfLife *psGame, char *szInput);
-extern void gofCycle(GameOfLife *psGame);
+extern void gofStartGen(GameOfLife *psGame);
+extern void gofEndGen(GameOfLife *psGame);
+extern void *gofCycleHalf(void *psArgs); // TODO
 extern void gofPrintTotalStats(GameOfLife *psGame);
 extern void gofPrintToFile(GameOfLife *psGame, char *szOutput);
 extern void gofPrintGenStats(GameOfLife *psGame);

@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "../include/GameOfLife.h"
 
@@ -28,11 +29,15 @@ extern void gofCreate(GameOfLife *psGame, char *szInput)
 	fscanf(inputFile, "%d", &height);
 	fclose(inputFile);
 
-	psGame->pBoard = malloc(sizeof(unsigned char*) * width);
+	psGame->pBoard = malloc(sizeof(char*) * width);
+	psGame->pTempBoard = malloc(sizeof(char*) * width);
 	for (int i = 0; i < width; i++)
 	{
-		psGame->pBoard[i] = malloc(sizeof(unsigned char) * height);
+		psGame->pBoard[i] = malloc(sizeof(char) * height);
 		memset(psGame->pBoard[i], '\0', height);
+
+		psGame->pTempBoard[i] = malloc(sizeof(char) * height);
+		memset(psGame->pTempBoard[i], '\0', height);
 	}
 
 	psGame->width = width;
@@ -42,6 +47,8 @@ extern void gofCreate(GameOfLife *psGame, char *szInput)
 	psGame->totalBirths = 0;
 	psGame->totalDeaths = 0;
 	psGame->generations = 0;
+
+	pthread_mutex_init(&psGame->lock, NULL);
 }
 
 /****************************************************************************
@@ -55,8 +62,11 @@ extern void gofTerminate(GameOfLife *psGame)
 	for (int i = 0; i < psGame->width; i++)
 	{
 		free(psGame->pBoard[i]);
+		free(psGame->pTempBoard[i]);
 	}
 	free(psGame->pBoard);
+	free(psGame->pTempBoard);
+	pthread_mutex_destroy(&psGame->lock);
 }
 
 /****************************************************************************
@@ -81,6 +91,7 @@ extern void gofLoad(GameOfLife *psGame, char *szInput)
 		for (int j = 0; j < width; j++)
 		{
 			fscanf(inputFile, "%c", &psGame->pBoard[i][j]);
+			psGame->pTempBoard[i][j] = psGame->pBoard[i][j];
 			if (psGame->pBoard[i][j] != DEAD && psGame->pBoard[i][j] != LIVING)
 			{
 				j--;
@@ -88,118 +99,106 @@ extern void gofLoad(GameOfLife *psGame, char *szInput)
 		}
 	}
 
-
 	fclose(inputFile);
 }
 
 /****************************************************************************
  Function:    gofCycle
  Description: Runs one cycle of life of the game
- Parameters:  psGame - Game of Life to run
- Returned:    None
+ Parameters:  pArgs - pointer to struct with Game and which half to compute
+ Returned:    0
  ****************************************************************************/
-extern void gofCycle(GameOfLife *psGame)
+extern void *gofCycleHalf(void *pArgs)
 {
-	unsigned char tempBoard[psGame->height][psGame->width];
-	psGame->births = 0;
-	psGame->deaths = 0;
+	CycleHalfArgs *psArgs = (CycleHalfArgs*)pArgs;
+	unsigned long long deaths = 0, births = 0;
 
-	// Copy psGame's board to tempBoard
-	for (int row = 0; row < psGame->height; row++)
+	for (int row = (psArgs->psGame->height / 2) * psArgs->half;
+			row < (psArgs->psGame->height / 2) * (psArgs->half + 1); row++)
 	{
-		for (int col = 0; col < psGame->width; col++)
-		{
-			tempBoard[row][col] = psGame->pBoard[row][col];
-		}
-	}
-
-	// Process each cell, count living neighbors
-	for (int row = 0; row < psGame->height; row++)
-	{
-		for (int col = 0; col < psGame->width; col++)
+		for (int col = 0; col < psArgs->psGame->width; col++)
 		{
 			int livingNeighbors = 0;
 
 			// Top left neighbor
-			if (row > 0 && col > 0 && psGame->pBoard[row - 1][col - 1] == LIVING)
+			if (row > 0 && col > 0 &&
+					psArgs->psGame->pTempBoard[row - 1][col - 1] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Top neighbor
-			if (row > 0 && psGame->pBoard[row - 1][col] == LIVING)
+			if (row > 0 && psArgs->psGame->pTempBoard[row - 1][col] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Top right neighbor
-			if (row > 0 && col < psGame->width - 1
-					&& psGame->pBoard[row - 1][col + 1] == LIVING)
+			if (row > 0 && col < psArgs->psGame->width - 1
+					&& psArgs->psGame->pTempBoard[row - 1][col + 1] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Right neighbor
-			if (col < psGame->width - 1 && psGame->pBoard[row][col + 1] == LIVING)
+			if (col < psArgs->psGame->width - 1 &&
+					psArgs->psGame->pTempBoard[row][col + 1] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Bottom right neighbor
-			if (row < psGame->height - 1 && col < psGame->width - 1
-					&& psGame->pBoard[row + 1][col + 1] == LIVING)
+			if (row < psArgs->psGame->height - 1 && col < psArgs->psGame->width - 1
+					&& psArgs->psGame->pTempBoard[row + 1][col + 1] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Bottom neighbor
-			if (row < psGame->height - 1 && psGame->pBoard[row + 1][col] == LIVING)
+			if (row < psArgs->psGame->height - 1 &&
+					psArgs->psGame->pTempBoard[row + 1][col] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Bottom left neighbor
-			if (row < psGame->height - 1 && col > 0
-					&& psGame->pBoard[row + 1][col - 1] == LIVING)
+			if (row < psArgs->psGame->height - 1 && col > 0
+					&& psArgs->psGame->pTempBoard[row + 1][col - 1] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Left neighbor
-			if (col > 0 && psGame->pBoard[row][col - 1] == LIVING)
+			if (col > 0 && psArgs->psGame->pTempBoard[row][col - 1] == LIVING)
 			{
 				livingNeighbors++;
 			}
 
 			// Kills cell if lonely or overcrowded
 			if ((livingNeighbors < MIN_TO_LIVE || livingNeighbors > MAX_TO_LIVE)
-					&& tempBoard[row][col] == LIVING)
+					&& psArgs->psGame->pTempBoard[row][col] == LIVING)
 			{
-				psGame->deaths++;
-				psGame->totalDeaths++;
-				tempBoard[row][col] = DEAD;
+				deaths++;
+				psArgs->psGame->pBoard[row][col] = DEAD;
 			}
 			// ... or brings cell back to life
 			else if (livingNeighbors == NUM_TO_RESURRECT
-					&& tempBoard[row][col] == DEAD)
+					&& psArgs->psGame->pTempBoard[row][col] == DEAD)
 			{
-				psGame->births++;
-				psGame->totalBirths++;
-				tempBoard[row][col] = LIVING;
+				births++;
+				psArgs->psGame->pBoard[row][col] = LIVING;
 			}
 		}
 	}
 
-	// Copy tempBoard to psGame
-	for (int row = 0; row < psGame->height; row++)
-	{
-		for (int col = 0; col < psGame->width; col++)
-		{
-			psGame->pBoard[row][col] = tempBoard[row][col];
-		}
-	}
+	pthread_mutex_lock(&psArgs->psGame->lock);
+	psArgs->psGame->deaths += deaths;
+	psArgs->psGame->totalDeaths += deaths;
+	psArgs->psGame->births += births;
+	psArgs->psGame->totalBirths += births;
+	pthread_mutex_unlock(&psArgs->psGame->lock);
 
-	psGame->generations++;
+	return 0;
 }
 
 /****************************************************************************
@@ -210,7 +209,7 @@ extern void gofCycle(GameOfLife *psGame)
  ****************************************************************************/
 extern void gofPrintTotalStats(GameOfLife *psGame)
 {
-	printf("\nTOTAL DEATHS: %d\tTOTAL BIRTHS: %d\n",
+	printf("\nTOTAL DEATHS: %llu\tTOTAL BIRTHS: %llu\n",
 			psGame->totalDeaths, psGame->totalBirths);
 }
 
@@ -237,7 +236,6 @@ extern void gofPrintToFile(GameOfLife *psGame, char *szOutput)
 		}
 	}
 
-
 	fclose(outputFile);
 }
 
@@ -252,5 +250,40 @@ extern void gofPrintGenStats(GameOfLife *psGame)
 	printf("Generation %d:\tDEATHS: %d\tBIRTHS: %d\n",
 			psGame->generations, psGame->deaths, psGame->births);
 }
+
+/****************************************************************************
+ Function:    gofStartGen
+ Description: Resets generation specific variables like births, deaths, and
+ 	 	 	 	 	 	  the temporary board
+ Parameters:  psGame  - Game of Life to modify
+ Returned:    None
+ ****************************************************************************/
+extern void gofStartGen(GameOfLife *psGame)
+{
+	psGame->births = 0;
+	psGame->deaths = 0;
+
+	// Copy psGame's board to tempBoard
+	for (int row = 0; row < psGame->height; row++)
+	{
+		for (int col = 0; col < psGame->width; col++)
+		{
+			psGame->pTempBoard[row][col] = psGame->pBoard[row][col];
+		}
+	}
+}
+
+/****************************************************************************
+ Function:    gofEndGen
+ Description: Adds 1 to generations, to be used after a life cycle
+ Parameters:  psGame  - Game of Life to modify
+ Returned:    None
+ ****************************************************************************/
+extern void gofEndGen(GameOfLife *psGame)
+{
+	psGame->generations++;
+}
+
+
 
 
